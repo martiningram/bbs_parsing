@@ -1,3 +1,4 @@
+# This script creates a matrix of presence/absence for each route in the BBS dataset.
 import pandas as pd
 from glob import glob
 from functools import reduce
