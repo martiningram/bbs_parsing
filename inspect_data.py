@@ -53,9 +53,9 @@ species_list_file = "../SpeciesList.txt"
 all_lines = list(open(species_list_file, encoding="latin-1"))
 
 
-def get_header(header_line):
+def split_line(line):
 
-    stripped = header_line.strip()
+    stripped = line.strip()
 
     return [x for x in stripped.split(" ") if x != ""]
 
@@ -76,7 +76,10 @@ split_indices = [0] + list(np.cumsum(split_lengths))
 
 def split_info(info_line, split_indices, header):
 
-    fields = [info_line[x:y].strip() for x, y in zip(split_indices, split_indices[1:])]
+    fields = [
+        info_line[x + 1 : y + 1].strip()
+        for x, y in zip(split_indices, split_indices[1:])
+    ]
     with_names = {x: y for x, y in zip(header, fields)}
 
     return with_names
@@ -93,5 +96,36 @@ all_split["AOU"] = all_split["AOU"].astype(int)
 all_split["scientific_name"] = all_split["Genus"] + " " + all_split["Species"]
 
 relevant = all_split[["AOU", "scientific_name", "English_Common_Name"]]
-
+relevant = relevant.rename(columns={"English_Common_Name": "common_name"})
 with_species_info = with_coords.merge(relevant, on="AOU")
+
+# The next step is to turn this into a presence/absence matrix by route.
+species_encoder = LabelEncoder()
+species_encoder.fit(with_species_info["scientific_name"])
+
+route_encoder = LabelEncoder()
+route_encoder.fit(with_species_info["route_id"])
+
+n_routes = len(route_encoder.classes_)
+n_species = len(species_encoder.classes_)
+
+route_pa_mat = np.zeros((n_routes, n_species), dtype=int)
+
+route_ids = route_encoder.transform(with_species_info["route_id"])
+sp_ids = species_encoder.transform(with_species_info["scientific_name"])
+
+combinations = pd.Series(route_ids.astype(str)) + "-" + pd.Series(sp_ids.astype(str))
+
+# Make sure these are unique
+assert np.max(combinations.value_counts() == 1)
+
+# Fill the matrix
+route_pa_mat[route_ids, sp_ids] = 1
+
+pa_df = pd.DataFrame(
+    route_pa_mat, index=route_encoder.classes_, columns=species_encoder.classes_
+)
+
+# Store the results
+pa_df.to_csv("route_pa.csv")
+relevant.to_csv("species_info.csv")
