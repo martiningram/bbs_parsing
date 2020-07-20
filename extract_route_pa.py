@@ -9,10 +9,9 @@ from os.path import join
 description = """
 This script creates a matrix of presence/absence for each route in the BBS dataset.
 For help about the arguments, call python extract_route_pa.py --help
-If all goes well, it should produce three files:
+If all goes well, it should produce two files:
 1) route_pa_{year}.csv: The table of presence/absence by route
 2) species_info_{year}.csv: Information about each species
-3) route_coords_{year}.csv: Latitude/Longitude for each route
 Note that a species is marked as present if it is observed at least once on
 _any_ of the 50 stops, so the spatial resolution is quite coarse.
 """
@@ -183,7 +182,8 @@ def get_coordinates(route_df):
 
 route_coords = with_species_info.groupby("route_id").apply(get_coordinates)
 
+pa_df = pd.concat([pa_df, route_coords], axis=1)
+
 # Store the results
 pa_df.to_csv(f"route_pa_{year}.csv")
 relevant.to_csv(f"species_info_{year}.csv")
-route_coords.to_csv(f"route_coords_{year}.csv")
