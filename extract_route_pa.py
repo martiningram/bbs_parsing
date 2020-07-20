@@ -1,15 +1,54 @@
-# This script creates a matrix of presence/absence for each route in the BBS dataset.
 import pandas as pd
 from glob import glob
 from functools import reduce
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from os.path import join
 
+description = """
+This script creates a matrix of presence/absence for each route in the BBS dataset.
+For help about the arguments, call python extract_route_pa.py --help
+If all goes well, it should produce three files:
+1) route_pa_{year}.csv: The table of presence/absence by route
+2) species_info_{year}.csv: Information about each species
+3) route_coords_{year}.csv: Latitude/Longitude for each route
+Note that a species is marked as present if it is observed at least once on
+_any_ of the 50 stops, so the spatial resolution is quite coarse.
+"""
 
-year = 2019
-min_observations = 10
+parser = ArgumentParser(
+    description=description, formatter_class=RawDescriptionHelpFormatter
+)
+parser.add_argument(
+    "--base-dir",
+    required=True,
+    type=str,
+    help="The path to the 50-StopData. For example: ./50-StopData/1997ToPresent_SurveyWide",
+)
 
-stop_files = glob("../50-StopData/1997ToPresent_SurveyWide/fifty*.csv")
+parser.add_argument(
+    "--year",
+    required=False,
+    default=2019,
+    type=int,
+    help="The year to extract route PA for. Defaults to 2019.",
+)
+parser.add_argument(
+    "--min-observations",
+    required=False,
+    default=10,
+    type=int,
+    help="The minimum number of presences for a bird species to be kept. Defaults to 10.",
+)
+
+args = parser.parse_args()
+
+year = args.year
+min_observations = args.min_observations
+base_dir = args.base_dir
+
+stop_files = glob(join(base_dir, "fifty*.csv"))
 stop_data = pd.concat([pd.read_csv(x) for x in stop_files])
 routes_data = pd.read_csv("../routes.csv", encoding="latin-1")
 
@@ -127,6 +166,24 @@ pa_df = pd.DataFrame(
     route_pa_mat, index=route_encoder.classes_, columns=species_encoder.classes_
 )
 
+# We also need the coordinates for each route
+def get_coordinates(route_df):
+
+    # Make sure they are unique:
+    assert len(route_df["Latitude"].unique()) == 1
+    assert len(route_df["Longitude"].unique()) == 1
+
+    return pd.Series(
+        {
+            "Latitude": route_df["Latitude"].iloc[0],
+            "Longitude": route_df["Longitude"].iloc[0],
+        }
+    )
+
+
+route_coords = with_species_info.groupby("route_id").apply(get_coordinates)
+
 # Store the results
-pa_df.to_csv("route_pa.csv")
-relevant.to_csv("species_info.csv")
+pa_df.to_csv(f"route_pa_{year}.csv")
+relevant.to_csv(f"species_info_{year}.csv")
+route_coords.to_csv(f"route_coords_{year}.csv")
