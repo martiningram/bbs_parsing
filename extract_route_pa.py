@@ -25,6 +25,12 @@ parser.add_argument(
     type=str,
     help="The path to the 50-StopData. For example: ./50-StopData/1997ToPresent_SurveyWide",
 )
+parser.add_argument(
+    "--only-stop-1",
+    action="store_true",
+    help="If specified, only stop 1 presence/absence is used. This can be helpful "
+    "because only coordinates for the starting point are available.",
+)
 
 parser.add_argument(
     "--year",
@@ -53,13 +59,17 @@ routes_data = pd.read_csv("../routes.csv", encoding="latin-1")
 
 stop_data = stop_data[stop_data["Year"] == year]
 
-# We only care about presence-absence at the level of routes. So do sums of all
-# the stops.
 # Route numbers are _not_ unique. The same route can be in a different country
 # and state!
 stop_cols = [x for x in stop_data.columns if "Stop" in x]
 stop_obs = stop_data[stop_cols]
-stop_data["was_observed"] = stop_obs.sum(axis=1) > 0
+
+if args.only_stop_1:
+    stop_data["was_observed"] = stop_obs["Stop1"] > 0
+    # Drop those that weren't:
+    stop_data = stop_data[stop_data["was_observed"]]
+else:
+    stop_data["was_observed"] = stop_obs.sum(axis=1) > 0
 
 assert all(stop_data["was_observed"].values)
 
