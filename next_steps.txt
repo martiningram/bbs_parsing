@@ -1,8 +1,0 @@
-Next stuff to do:
-
-1. Maybe make a Makefile for this, or at least give it an argument to point it
-to the right place
-2. Maybe make an online git repository for this (can be public)
-3. See how many names from eBird I can match with the ones here. I may have to
-rename some of the BBS stuff. But that's probably outside the scope of this
-little BBS utility.
