@@ -25,11 +25,15 @@ parser.add_argument(
     type=str,
     help="The path to the 50-StopData. For example: ./50-StopData/1997ToPresent_SurveyWide",
 )
+
 parser.add_argument(
-    "--only-stop-1",
-    action="store_true",
-    help="If specified, only stop 1 presence/absence is used. This can be helpful "
-    "because only coordinates for the starting point are available.",
+    "--n-stops",
+    required=False,
+    type=int,
+    default=50,
+    help="If specified, only the first n stops are used to create"
+    "presence/absence. This can be helpful to increase precision of the"
+    "coordinates, since they are only given at the start of the route.",
 )
 
 parser.add_argument(
@@ -64,12 +68,12 @@ stop_data = stop_data[stop_data["Year"] == year]
 stop_cols = [x for x in stop_data.columns if "Stop" in x]
 stop_obs = stop_data[stop_cols]
 
-if args.only_stop_1:
-    stop_data["was_observed"] = stop_obs["Stop1"] > 0
-    # Drop those that weren't:
-    stop_data = stop_data[stop_data["was_observed"]]
-else:
-    stop_data["was_observed"] = stop_obs.sum(axis=1) > 0
+n_stops = args.n_stops
+stops_to_fetch = list(range(1, n_stops + 1))
+stop_obs = stop_obs[[f"Stop{n}" for n in stops_to_fetch]]
+
+stop_data["was_observed"] = stop_obs.sum(axis=1) > 0
+stop_data = stop_data[stop_data["was_observed"]]
 
 assert all(stop_data["was_observed"].values)
 
@@ -194,6 +198,11 @@ route_coords = with_species_info.groupby("route_id").apply(get_coordinates)
 
 pa_df = pd.concat([pa_df, route_coords], axis=1)
 
+if args.n_stops < 50:
+    suffix = f"up_to_{n_stops}_only"
+else:
+    suffix = ""
+
 # Store the results
-pa_df.to_csv(f"route_pa_{year}.csv")
-relevant.to_csv(f"species_info_{year}.csv")
+pa_df.to_csv(f"route_pa_{year}_{suffix}.csv")
+relevant.to_csv(f"species_info_{year}_{suffix}.csv")
